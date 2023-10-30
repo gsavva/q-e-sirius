@@ -18,14 +18,15 @@ set(src_util
     export_gstart_2_solvers.f90
     set_mpi_comm_4_solvers.f90
     # GPU
-    mp_base_gpu.f90)
+    mp_base_gpu.f90
+    sirius.f90)
 qe_enable_cuda_fortran("${src_util}")
 qe_add_library(qe_utilx ${src_util})
 
-if(QE_ENABLE_SIRIUS)
-  get_property(_sirius_include_dirs TARGET sirius::sirius PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
-  target_include_directories(qe_utilx PRIVATE ${_sirius_include_dirs})
-endif(QE_ENABLE_SIRIUS)
+#if(QE_ENABLE_SIRIUS)
+#  get_property(_sirius_include_dirs TARGET sirius::sirius PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+#  target_include_directories(qe_utilx PRIVATE ${_sirius_include_dirs})
+#endif(QE_ENABLE_SIRIUS)
 
 set(src_util_c
     cptimer.c
