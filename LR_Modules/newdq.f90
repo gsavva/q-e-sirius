@@ -31,6 +31,7 @@ subroutine newdq (dvscf, npe)
   USE lrus,                 ONLY : int3, int3_paw
   USE qpoint,               ONLY : xq, eigqts
   USE control_lr,           ONLY : lgamma
+  USE mp_world,             ONLY : mpime, nproc
   USE mod_sirius
 
   implicit none
@@ -75,6 +76,14 @@ subroutine newdq (dvscf, npe)
         enddo
      enddo
 
+   !   #if defined(__SIRIUS_)
+   !       DO nt = 1, ntyp
+   !          IF (upf(nt)%tvanp) THEN
+   !             CALL sirius_generate_newdq(gs_handler, nt, nat, ngm, nspin_mag, atom_type(nt)%qpw, &
+   !                                           & nh(nt) * (nh(nt) + 1) / 2, eigqts, mill, aux2, nhm * (nhm + 1) / 2, aux)
+   !          ENDIF
+   !       ENDDO
+   !   #else
      do nt = 1, ntyp ! loop over atom types
         if (upf(nt)%tvanp ) then
            ! composite index for ih and jh (ksi and ksi')
@@ -136,9 +145,12 @@ subroutine newdq (dvscf, npe)
            deallocate (res2)
         endif ! if US-PP
      enddo ! nt
+   !   #endif
   enddo ! ipert
 #if defined(__MPI)
+  call start_clock ('mpi_sum_int3')
   call mp_sum ( int3, intra_bgrp_comm )
+  call stop_clock ('mpi_sum_int3')
 #endif
   !
   IF (noncolin) CALL set_int3_nc(npe)
