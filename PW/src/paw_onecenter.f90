@@ -1711,23 +1711,30 @@ MODULE paw_onecenter
     !
     CALL start_clock( 'PAW_dxc_pot' )
     !
+    CALL start_clock( 'allocation' )
     ALLOCATE( rho_rad(i%m,nspin_mag) )
     ALLOCATE( v_rad(i%m,rad(i%t)%nx,nspin_mag) )
     ALLOCATE( dmuxc(i%m,nspin_mag,nspin_mag) )
+    CALL stop_clock( 'allocation' )
     !
     DO ix = ix_s, ix_e
        !
        ! *** LDA (and LSDA) part (no gradient correction) ***
        ! convert _lm density to real density along ix
        !
+       CALL start_clock( 'PAW_lm2rad_1' )
        CALL PAW_lm2rad( i, ix, rho_lm, rho_rad, nspin_mag )
+       CALL stop_clock( 'PAW_lm2rad_1' )
        !
        ! Compute the fxc function on the radial mesh along ix
        !
+       CALL start_clock( 'fxc_function' )
        DO k = 1, i%m
           rho_rad(k,1:nspin_mag) = rho_rad(k,1:nspin_mag)*g(i%t)%rm2(k)
        ENDDO
        !
+       CALL stop_clock( 'fxc_function' )
+       CALL start_clock( 'select_case' )
        SELECT CASE( nspin_mag )
        CASE( 4 )
           !
@@ -1751,12 +1758,16 @@ MODULE paw_onecenter
           !
        END SELECT
        !
+       CALL stop_clock( 'select_case' )
        ! Compute the change of the charge on the radial mesh along ix
        !
+       CALL start_clock( 'PAW_lm2rad_2' )
        CALL PAW_lm2rad( i, ix, drho_lm, rho_rad, nspin_mag )
+       CALL stop_clock( 'PAW_lm2rad_2' )
        !
        ! fxc * dn
        !
+       CALL start_clock( 'fxc_x_dn' )
        IF (nspin_mag == 1) THEN
           v_rad(:,ix,1) = v_rad(:,ix,1)*rho_rad(:,1)*g(i%t)%rm2(:) 
        ELSE
@@ -1768,21 +1779,28 @@ MODULE paw_onecenter
              ENDDO
           ENDDO
        ENDIF
+       CALL stop_clock( 'fxc_x_dn' )
        !
     ENDDO
     !
     ! Recompose the sph. harm. expansion
     !
+    CALL start_clock( 'PAW_rad2lm' )
     CALL PAW_rad2lm( i, v_rad, v_lm, i%l, nspin_mag )
+    CALL stop_clock( 'PAW_rad2lm' )
     !
     ! Add gradient correction, if necessary
     !
+    CALL start_clock( 'PAW_dgcxc_potential' )
     IF( xclib_dft_is('gradient') ) &
         CALL PAW_dgcxc_potential( i, rho_lm, rho_core, drho_lm, v_lm )
+    CALL stop_clock( 'PAW_dgcxc_potential' )
     !
+    CALL start_clock( 'deallocations' )
     DEALLOCATE( rho_rad )
     DEALLOCATE( v_rad   )
     DEALLOCATE( dmuxc   )
+    CALL stop_clock( 'deallocations' )
     !
     CALL stop_clock( 'PAW_dxc_pot' )
     !
