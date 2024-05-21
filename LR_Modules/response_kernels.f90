@@ -131,10 +131,12 @@ SUBROUTINE sternheimer_kernel(first_iter, time_reversed, npert, lrdvpsi, iudvpsi
    !! temporary storage used in apply_dpot_bands
    INTEGER, ALLOCATABLE :: vg_kq(:,:)
    !
-   INTEGER :: ig
+   INTEGER :: ig, i_nbnd
+   real(8) :: diff
    !
    EXTERNAL ch_psi_all, cg_psi
    !! functions passed to cgsolve_all
+   COMPLEX (DP), ALLOCATABLE :: dvpsi_S(:,:), dpsi_S(:,:)
    !
    ! Initialization
    !
@@ -146,6 +148,8 @@ SUBROUTINE sternheimer_kernel(first_iter, time_reversed, npert, lrdvpsi, iudvpsi
    ALLOCATE(h_diag(npwx*npol, nbnd))
    ALLOCATE(aux2(npwx*npol, nbnd))
    !
+   ALLOCATE (dvpsi_S(npwx*npol,nbnd))
+   ALLOCATE (dpsi_S(npwx*npol,nbnd))
    !$acc enter data create(aux2(1:npwx*npol, 1:nbnd))
    !
    all_conv = .TRUE.
@@ -262,17 +266,40 @@ SUBROUTINE sternheimer_kernel(first_iter, time_reversed, npert, lrdvpsi, iudvpsi
          ! dvpsi == d0psi  <-- right-hand side (in, destroyed on exit)
          ! dpsi   <-- left-hand side (in/out)
          ! TODO: pass eigvals in [Ha]
+         ! dvpsi_S = (0.0d0, 0.0d0)
+         ! dpsi_S = (0.0d0, 0.0d0)
+         ! dvpsi_S = dvpsi
+         ! dpsi_S = dpsi
          CALL sirius_linear_solver( gs_handler, vkq=MATMUL(TRANSPOSE(at), xk(:,ikq)),&
             &num_gvec_kq_loc=npwq, gvec_kq_loc=vg_kq, dpsi=dpsi,&
             &psi=evq, eigvals=et(:, ikmk), dvpsi=dvpsi, ld=npwx, num_spin_comp=npol,&
-            &alpha_pv=alpha_pv, spin=current_spin, nbnd_occ=nbnd_occ(ikk), tol=thresh, &
-            & niter=num_iter)
+            &alpha_pv=alpha_pv, spin=current_spin, nbnd_occ_k=nbnd_occ(ikk),& 
+            &nbnd_occ_kq=nbnd_occ(ikq), tol=thresh, niter=num_iter)
          !
          DEALLOCATE(vg_kq)
 #else
          CALL cgsolve_all(ch_psi_all, cg_psi, et(1, ikmk), dvpsi, dpsi, h_diag, &
             npwx, npwq, thresh, ik, num_iter, conv_root, anorm, nbnd_occ(ikk), npol)
 #endif
+         ! diff = 0.0d0
+         ! DO i_nbnd = 1, nbnd
+         !    DO ig = 1, npwq
+!              write(*,*) 'ig, i_nbnd', ig, i_nbnd
+!              write(*,*) '           dpsi_QE', dpsi  (ig, i_nbnd)
+!              write(*,*) '           dpsi_SI', dpsi_S(ig, i_nbnd) 
+!              write(*,*) '           diff', ACHAR(9), ACHAR(9), ACHAR(9), ACHAR(9), ACHAR(9), ACHAR(9), ACHAR(9), &
+!                                            abs( dpsi  (ig, i_nbnd) - dpsi_S(ig, i_nbnd) )
+!              if (abs( dpsi(ig, i_nbnd) - dpsi_S(ig, i_nbnd) ) > 1.0d-6) then
+!                 write(*,*) '== ik, ikk, nbnd_occ(ikk), i_nbnd, ig, dpsi diff', &
+!                             ik, ikk, nbnd_occ(ikk), i_nbnd, ig, abs( dpsi(ig, i_nbnd) - dpsi_S(ig, i_nbnd) )
+!              endif
+         !       diff = diff + abs( dpsi(ig, i_nbnd) - dpsi_S(ig, i_nbnd) )
+         !    ENDDO
+         !    write(*,*) 'ik, ikk, nbnd_occ(ikk), i_nbnd, dpsi diff', &
+         !                ik, ikk, nbnd_occ(ikk), i_nbnd, diff
+         !    diff = 0.0d0
+         ! ENDDO
+         ! write(*,*) " "
          !
          tot_num_iter = tot_num_iter + num_iter
          tot_cg_calls = tot_cg_calls + 1
